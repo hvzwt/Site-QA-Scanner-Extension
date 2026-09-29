@@ -1,9 +1,9 @@
 import React from 'react';
-import { ShieldAlert, Globe, FileText, Settings, Layers } from 'lucide-react';
+import { ShieldAlert, Globe, FileText, Settings, GitCompare } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'single' | 'site' | 'settings';
-  setActiveTab: (tab: 'single' | 'site' | 'settings') => void;
+  activeTab: 'single' | 'site' | 'compare' | 'settings';
+  setActiveTab: (tab: 'single' | 'site' | 'compare' | 'settings') => void;
   currentUrl: string;
 }
 
@@ -36,34 +36,47 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, current
       </div>
 
       {/* Mode Navigation Tabs */}
-      <div className="flex border-t border-slate-100 px-3 bg-slate-50/70">
+      <div className="flex border-t border-slate-100 px-2 bg-slate-50/70">
         <button
           onClick={() => setActiveTab('single')}
-          className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+          className={`flex-1 py-2.5 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
             activeTab === 'single'
               ? 'border-indigo-600 text-indigo-600 bg-white'
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          Single Page
+          Single
         </button>
 
         <button
           onClick={() => setActiveTab('site')}
-          className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+          className={`flex-1 py-2.5 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
             activeTab === 'site'
               ? 'border-indigo-600 text-indigo-600 bg-white'
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
           <Globe className="w-3.5 h-3.5" />
-          Full Site Audit
+          Full Site
+        </button>
+
+        <button
+          onClick={() => setActiveTab('compare')}
+          className={`flex-1 py-2.5 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
+            activeTab === 'compare'
+              ? 'border-indigo-600 text-indigo-600 bg-white'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+          title="Compare Live Page with Google Doc or Figma"
+        >
+          <GitCompare className="w-3.5 h-3.5" />
+          Compare
         </button>
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`py-2.5 px-3 text-xs font-semibold flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+          className={`py-2.5 px-2.5 text-[11px] font-semibold flex items-center justify-center gap-1 border-b-2 transition-colors ${
             activeTab === 'settings'
               ? 'border-indigo-600 text-indigo-600 bg-white'
               : 'border-transparent text-slate-500 hover:text-slate-700'

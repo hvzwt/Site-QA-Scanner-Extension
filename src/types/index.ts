@@ -63,6 +63,34 @@ export interface ScannerSettings {
   customKeywords: string[];
 }
 
+export interface ContentComparisonItem {
+  id: string;
+  type: 'exact' | 'mismatch' | 'missing' | 'extra';
+  approvedText: string;
+  liveText?: string;
+  similarity: number; // 0 to 1
+  elementSelector?: string;
+  highlightId?: string;
+}
+
+export interface ComparisonReport {
+  sourceUrl: string;
+  sourceType: 'google-doc' | 'figma' | 'manual';
+  pageUrl: string;
+  matchScore: number; // 0 - 100%
+  totalApprovedBlocks: number;
+  exactMatches: number;
+  mismatches: number;
+  missingFromPage: number;
+  items: ContentComparisonItem[];
+}
+
+export interface LiveContentBlock {
+  text: string;
+  elementSelector: string;
+  highlightId: string;
+}
+
 export type ExtensionMessage =
   | { type: 'SCAN_ACTIVE_TAB'; settings?: Partial<ScannerSettings> }
   | { type: 'SCAN_ACTIVE_TAB_RESULT'; data: PageAuditResult }
@@ -73,4 +101,6 @@ export type ExtensionMessage =
   | { type: 'START_SITE_AUDIT'; urls: string[]; settings?: Partial<ScannerSettings> }
   | { type: 'SITE_AUDIT_PROGRESS'; progress: SiteAuditProgress }
   | { type: 'SITE_AUDIT_COMPLETE'; results: PageAuditResult[] }
-  | { type: 'CANCEL_SITE_AUDIT' };
+  | { type: 'CANCEL_SITE_AUDIT' }
+  | { type: 'EXTRACT_PAGE_CONTENT_BLOCKS' }
+  | { type: 'EXTRACT_PAGE_CONTENT_BLOCKS_RESULT'; blocks: LiveContentBlock[] };

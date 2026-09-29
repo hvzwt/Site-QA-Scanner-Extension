@@ -1,5 +1,5 @@
 import { analyzeTextSnippet, checkImageElement, checkAnchorElement, DEFAULT_SETTINGS, deduplicateIssues } from '../engine/detector';
-import { DetectedIssue, ExtensionMessage, PageAuditResult, ScannerSettings } from '../types';
+import { DetectedIssue, ExtensionMessage, PageAuditResult, ScannerSettings, LiveContentBlock } from '../types';
 
 let currentHighlightedEl: HTMLElement | null = null;
 const HIGHLIGHT_ATTR = 'data-site-qa-id';
@@ -314,4 +314,54 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
     sendResponse({ type: 'DISCOVER_INTERNAL_LINKS_RESULT', links });
     return true;
   }
+
+  if (message.type === 'EXTRACT_PAGE_CONTENT_BLOCKS') {
+    const blocks = extractPageContentBlocks();
+    sendResponse({ type: 'EXTRACT_PAGE_CONTENT_BLOCKS_RESULT', blocks });
+    return true;
+  }
 });
+
+/**
+ * Extracts visible textual blocks from the page for content verification.
+ */
+function extractPageContentBlocks(): LiveContentBlock[] {
+  const blocks: LiveContentBlock[] = [];
+  const visitedElements = new Set<Element>();
+
+  const candidates = Array.from(
+    document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, blockquote, button, a, .text, .title, .subheading, .description, [role="heading"]')
+  );
+
+  for (const el of candidates) {
+    if (visitedElements.has(el)) continue;
+
+    // Check visibility
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+      continue;
+    }
+
+    const directText = el.textContent?.replace(/\s+/g, ' ').trim() || '';
+    if (directText.length < 2) continue;
+
+    // Assign highlight ID for on-page locator
+    let highlightId = el.getAttribute(HIGHLIGHT_ATTR);
+    if (!highlightId) {
+      highlightId = `sqa-comp-${Math.random().toString(36).substring(2, 9)}`;
+      el.setAttribute(HIGHLIGHT_ATTR, highlightId);
+      el.classList.add('sqa-detected-issue-target');
+    }
+
+    blocks.push({
+      text: directText,
+      elementSelector: getElementSelector(el),
+      highlightId,
+    });
+
+    visitedElements.add(el);
+  }
+
+  injectHighlightStyles();
+  return blocks;
+}

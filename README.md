@@ -19,13 +19,26 @@ A Chrome Extension (Manifest V3) built with **React 18**, **TypeScript**, and **
 - **Background Crawler:** Fetches and audits pages sequentially with progress tracking and live status.
 - **Exportable Reports:** Download the entire site audit report in **CSV** (for spreadsheets / clients) or **JSON** format.
 
-### 3. Copyright & Year Mismatch Engine
+### 3. Broken & Unlinked '#' Anchor Link Detection
+- Flags dummy and broken anchor links (`href="#"`, `href="#!"`, `href="javascript:void(0)"`, or empty `href=""`) so unlinked buttons or navigation items aren't left broken prior to launch.
+- Captures button and link labels with direct on-page highlighting and scrolling.
+- Integrated into Single Page Audit, Full Site Audit, and CSV/JSON exports.
+
+### 4. Google Doc & Figma Content Verification
+- **Google Doc Integration:** Extracts approved text blocks from public Google Docs without requiring OAuth.
+- **Figma Integration:** Pulls design copy from Figma files and frames via the Figma REST API using your Personal Access Token.
+- **Direct Paste Mode:** Quick paste fallback for confidential copy decks.
+- **Smart Diffing Engine:** Normalizes smart quotes and formatting, computes similarity scores, and classifies content into **Exact Matches**, **Content Mismatches** (e.g. altered prices or copy), and **Missing Blocks** (approved content never added to the live page).
+- **Interactive Side-by-Side Review:** Jump directly to differences on the live page with the **Locate** button.
+
+### 5. Copyright & Year Mismatch Engine
 - Automatically checks for copyright statements (e.g. `© 2024`, `Copyright 2018-2025`, `&copy; 2025`).
 - Evaluates against the current target year (**2026** by default).
 - Flags outdated years, empty bracketed years like `© [Year]`, and placeholder notices.
 
-### 4. Chrome Side Panel UI
-- Built using the Chrome Side Panel API (`chrome.sidePanel`), so the auditor dashboard stays open alongside the webpage without disappearing when you interact with the page.
+### 6. Chrome Side Panel & Tab-Aware URL Scoping
+- Built using the Chrome Side Panel API (`chrome.sidePanel`), so the auditor dashboard stays open alongside the webpage without disappearing when interacting with the page.
+- **URL-Scoped State:** Results and comparisons are cleanly scoped per URL, preventing stale audit reports from lingering when switching or opening new tabs, while preserving cached results when navigating back.
 
 ---
 

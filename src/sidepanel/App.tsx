@@ -2,21 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { SinglePageAudit } from './components/SinglePageAudit';
 import { FullSiteAudit } from './components/FullSiteAudit';
+import { ContentCompareTab } from './components/ContentCompareTab';
 import { SettingsTab } from './components/SettingsTab';
 import { DEFAULT_SETTINGS } from '../engine/detector';
 import { PageAuditResult, ScannerSettings, SiteAuditProgress, ExtensionMessage } from '../types';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'single' | 'site' | 'settings'>('single');
+  const [activeTab, setActiveTab] = useState<'single' | 'site' | 'compare' | 'settings'>('single');
   const [currentUrl, setCurrentUrl] = useState<string>('');
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
 
   // Settings State
   const [settings, setSettings] = useState<ScannerSettings>(DEFAULT_SETTINGS);
 
-  // Single Page State
-  const [pageResult, setPageResult] = useState<PageAuditResult | null>(null);
+  // Single Page State: URL-keyed so different pages do not display stale reports
+  const [pageResultsByUrl, setPageResultsByUrl] = useState<Record<string, PageAuditResult>>({});
   const [isScanningSingle, setIsScanningSingle] = useState(false);
+
+  const cleanPageKey = (url: string) => (url ? url.split('#')[0] : '');
+  const activePageKey = cleanPageKey(currentUrl);
+  const pageResult = activePageKey ? pageResultsByUrl[activePageKey] || null : null;
 
   // Full Site State
   const [discoveredUrls, setDiscoveredUrls] = useState<string[]>([]);
@@ -43,9 +48,19 @@ export const App: React.FC = () => {
     // Query Active Tab
     refreshCurrentTab();
 
-    // Listen to Tab Changes
+    // Listen to Tab Switched
     if (typeof chrome !== 'undefined' && chrome.tabs?.onActivated) {
       chrome.tabs.onActivated.addListener(refreshCurrentTab);
+    }
+
+    // Listen to Tab Navigated / URL Changed in current tab
+    const handleTabUpdated = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
+      if (tab.active && (changeInfo.url || changeInfo.status === 'complete')) {
+        refreshCurrentTab();
+      }
+    };
+    if (typeof chrome !== 'undefined' && chrome.tabs?.onUpdated) {
+      chrome.tabs.onUpdated.addListener(handleTabUpdated);
     }
 
     // Listen to background crawler messages
@@ -64,6 +79,12 @@ export const App: React.FC = () => {
     }
 
     return () => {
+      if (typeof chrome !== 'undefined' && chrome.tabs?.onActivated) {
+        chrome.tabs.onActivated.removeListener(refreshCurrentTab);
+      }
+      if (typeof chrome !== 'undefined' && chrome.tabs?.onUpdated) {
+        chrome.tabs.onUpdated.removeListener(handleTabUpdated);
+      }
       if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
         chrome.runtime.onMessage.removeListener(messageListener);
       }
@@ -100,7 +121,8 @@ export const App: React.FC = () => {
           return;
         }
         if (response && response.data) {
-          setPageResult(response.data);
+          const key = cleanPageKey(response.data.url);
+          setPageResultsByUrl(prev => ({ ...prev, [key]: response.data }));
         }
       }
     );
@@ -201,6 +223,14 @@ export const App: React.FC = () => {
             progress={siteProgress}
             results={siteResults}
             onResetResults={handleResetResults}
+          />
+        )}
+
+        {activeTab === 'compare' && (
+          <ContentCompareTab
+            currentUrl={currentUrl}
+            activeTabId={activeTabId}
+            onHighlightElement={handleHighlightElement}
           />
         )}
 

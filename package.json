@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && node build.js",
     "preview": "vite preview",
-    "test": "npx tsx test/detector.test.js"
+    "test": "npx tsx test/detector.test.js && npx tsx test/diff-engine.test.js"
   },
   "dependencies": {
     "clsx": "^2.1.1",
