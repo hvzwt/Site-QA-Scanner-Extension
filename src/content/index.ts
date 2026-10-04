@@ -114,6 +114,12 @@ function scanActiveDOM(settings: ScannerSettings = DEFAULT_SETTINGS): PageAuditR
     }
   }
 
+  // 4. Scan HTML Structure & SEO Quality
+  if (settings.checkHtmlStructure) {
+    const structIssues = scanActiveDOMStructure(currentUrl);
+    issues.push(...structIssues);
+  }
+
   const dedupedIssues = deduplicateIssues(issues);
 
   // Compute stats
@@ -125,6 +131,7 @@ function scanActiveDOM(settings: ScannerSettings = DEFAULT_SETTINGS): PageAuditR
     placeholderMedia: dedupedIssues.filter(i => i.category === 'placeholder-image').length,
     templateVariables: dedupedIssues.filter(i => i.category === 'template-variable').length,
     unlinkedAnchors: dedupedIssues.filter(i => i.category === 'unlinked-anchor').length,
+    htmlStructure: dedupedIssues.filter(i => i.category === 'html-structure').length,
   };
 
   injectHighlightStyles();
@@ -137,6 +144,191 @@ function scanActiveDOM(settings: ScannerSettings = DEFAULT_SETTINGS): PageAuditR
     issues: dedupedIssues,
     stats,
   };
+}
+
+/**
+ * Scans active DOM for HTML structure, heading hierarchy, meta tags, and semantic landmarks.
+ */
+function scanActiveDOMStructure(url: string): DetectedIssue[] {
+  const issues: DetectedIssue[] = [];
+
+  // 1. Heading Hierarchy Analysis in Live DOM
+  const headings = Array.from(document.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'));
+  const h1Elements = headings.filter(h => h.tagName.toLowerCase() === 'h1');
+
+  if (headings.length > 0 && h1Elements.length === 0) {
+    const target = document.body;
+    const highlightId = `sqa-struct-h1-${Math.random().toString(36).substring(2, 9)}`;
+    target.setAttribute(HIGHLIGHT_ATTR, highlightId);
+    target.classList.add('sqa-detected-issue-target');
+
+    issues.push({
+      id: `struct-h1-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'high',
+      title: 'Missing <h1> Primary Heading',
+      snippet: 'No <h1> element found on page',
+      context: 'Page contains headings but lacks an <h1> primary header.',
+      pageUrl: url,
+      highlightId,
+      elementSelector: 'body',
+    });
+  } else if (h1Elements.length > 1) {
+    for (let i = 1; i < h1Elements.length; i++) {
+      const h1 = h1Elements[i];
+      const highlightId = `sqa-struct-h1-multi-${Math.random().toString(36).substring(2, 9)}`;
+      h1.setAttribute(HIGHLIGHT_ATTR, highlightId);
+      h1.classList.add('sqa-detected-issue-target');
+
+      issues.push({
+        id: `struct-h1-multiple-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'medium',
+        title: `Multiple <h1> Headings Detected (${h1Elements.length} total)`,
+        snippet: h1.textContent?.trim() || '<h1>',
+        context: `Extra <h1> heading tag found. Best practice is to have exactly one <h1> per page.`,
+        pageUrl: url,
+        highlightId,
+        elementSelector: getElementSelector(h1),
+      });
+    }
+  }
+
+  // Heading Level Skips
+  let prevLevel = 0;
+  for (const h of headings) {
+    const level = parseInt(h.tagName.substring(1), 10);
+    const text = h.textContent?.trim() || h.tagName;
+
+    if (prevLevel > 0 && level > prevLevel + 1) {
+      const highlightId = `sqa-struct-hskip-${Math.random().toString(36).substring(2, 9)}`;
+      h.setAttribute(HIGHLIGHT_ATTR, highlightId);
+      h.classList.add('sqa-detected-issue-target');
+
+      issues.push({
+        id: `struct-h-skip-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'medium',
+        title: `Skipped Heading Level (<h${prevLevel}> to <h${level}>)`,
+        snippet: `<h${level}> ${text} </h${level}>`,
+        context: `Heading level skipped from <h${prevLevel}> directly to <h${level}> without an <h${prevLevel + 1}>.`,
+        pageUrl: url,
+        highlightId,
+        elementSelector: getElementSelector(h),
+      });
+    }
+    prevLevel = level;
+  }
+
+  // 2. Meta Title & Description
+  const titleText = (document.title || '').trim();
+  if (!titleText) {
+    issues.push({
+      id: `struct-title-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'high',
+      title: 'Missing or Empty Page Title (<title>)',
+      snippet: '<title></title>',
+      context: 'The document lacks a valid <title> tag in <head>.',
+      pageUrl: url,
+    });
+  } else if (titleText.length < 10) {
+    issues.push({
+      id: `struct-title-short-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'low',
+      title: `Page Title Too Short (${titleText.length} chars)`,
+      snippet: titleText,
+      context: `Title "${titleText}" is under recommended 10 character minimum for SEO.`,
+      pageUrl: url,
+    });
+  } else if (titleText.length > 70) {
+    issues.push({
+      id: `struct-title-long-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'low',
+      title: `Page Title Too Long (${titleText.length} chars)`,
+      snippet: titleText,
+      context: `Title is ${titleText.length} characters (recommended maximum is 60-70 characters).`,
+      pageUrl: url,
+    });
+  }
+
+  const metaDescEl = document.querySelector('meta[name="description"]');
+  if (!metaDescEl) {
+    issues.push({
+      id: `struct-desc-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'high',
+      title: 'Missing Meta Description (<meta name="description">)',
+      snippet: '<meta name="description" content="...">',
+      context: 'No meta description tag was found in the document <head>.',
+      pageUrl: url,
+    });
+  } else {
+    const descText = (metaDescEl.getAttribute('content') || '').trim();
+    if (!descText) {
+      issues.push({
+        id: `struct-desc-empty-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'high',
+        title: 'Empty Meta Description Content',
+        snippet: '<meta name="description" content="">',
+        context: 'Meta description tag exists but content attribute is empty.',
+        pageUrl: url,
+      });
+    } else if (descText.length < 50) {
+      issues.push({
+        id: `struct-desc-short-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'low',
+        title: `Meta Description Too Short (${descText.length} chars)`,
+        snippet: descText,
+        context: `Meta description is ${descText.length} characters (recommended 50 - 160 characters).`,
+        pageUrl: url,
+      });
+    } else if (descText.length > 160) {
+      issues.push({
+        id: `struct-desc-long-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'low',
+        title: `Meta Description Too Long (${descText.length} chars)`,
+        snippet: descText,
+        context: `Meta description is ${descText.length} characters (will be truncated in search results above 160 chars).`,
+        pageUrl: url,
+      });
+    }
+  }
+
+  // 3. Semantic Landmark Tags
+  const mainEl = document.querySelector('main, [role="main"]');
+  if (!mainEl) {
+    issues.push({
+      id: `struct-main-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'medium',
+      title: 'Missing <main> Landmark Container',
+      snippet: '<main> ... </main>',
+      context: 'Document lacks a <main> semantic landmark tag for main content accessibility.',
+      pageUrl: url,
+    });
+  }
+
+  const divElements = document.querySelectorAll('div');
+  const semanticElements = document.querySelectorAll('section, article, header, footer, nav');
+  if (divElements.length >= 10 && semanticElements.length === 0) {
+    issues.push({
+      id: `struct-div-soup-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'medium',
+      title: 'Non-Semantic Layout Structure (Div Soup)',
+      snippet: `${divElements.length} <div> elements with 0 semantic landmark tags`,
+      context: `Page uses ${divElements.length} <div> elements but lacks semantic layout tags like <section>, <article>, or <nav>.`,
+      pageUrl: url,
+    });
+  }
+
+  return issues;
 }
 
 /**

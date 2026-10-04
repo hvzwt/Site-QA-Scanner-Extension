@@ -5,7 +5,8 @@ export type IssueCategory =
   | 'placeholder-image'
   | 'outdated-copyright'
   | 'fake-contact'
-  | 'unlinked-anchor';
+  | 'unlinked-anchor'
+  | 'html-structure';
 
 export type IssueSeverity = 'high' | 'medium' | 'low';
 
@@ -34,6 +35,7 @@ export interface PageAuditStats {
   placeholderMedia: number;
   templateVariables: number;
   unlinkedAnchors: number;
+  htmlStructure: number;
 }
 
 export interface PageAuditResult {
@@ -60,6 +62,7 @@ export interface ScannerSettings {
   checkPlaceholderImages: boolean;
   checkFakeContacts: boolean;
   checkUnlinkedAnchors: boolean;
+  checkHtmlStructure: boolean;
   customKeywords: string[];
 }
 

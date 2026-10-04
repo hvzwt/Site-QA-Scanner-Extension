@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: ScannerSettings = {
   checkPlaceholderImages: true,
   checkFakeContacts: true,
   checkUnlinkedAnchors: true,
+  checkHtmlStructure: true,
   customKeywords: [],
 };
 
@@ -352,6 +353,179 @@ export function checkAnchorElement(
 }
 
 /**
+ * Checks an HTML string for HTML structure, heading hierarchy, meta tags, and semantic landmarks.
+ */
+export function checkHtmlStructureFromString(
+  html: string,
+  url: string
+): DetectedIssue[] {
+  const issues: DetectedIssue[] = [];
+
+  // 1. Heading Hierarchy Analysis
+  const headingMatches = Array.from(html.matchAll(/<h([1-6])\b[^>]*>(.*?)<\/h\1>/gis));
+  const h1Matches = headingMatches.filter(m => m[1] === '1');
+
+  if (headingMatches.length > 0 && h1Matches.length === 0) {
+    issues.push({
+      id: `struct-h1-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'high',
+      title: 'Missing <h1> Primary Heading',
+      snippet: 'No <h1> heading element found on page',
+      context: 'Page contains headings but lacks an <h1> primary header.',
+      pageUrl: url,
+    });
+  } else if (h1Matches.length > 1) {
+    issues.push({
+      id: `struct-h1-multiple-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'medium',
+      title: `Multiple <h1> Headings Detected (${h1Matches.length} found)`,
+      snippet: h1Matches.map(m => m[2].replace(/<[^>]+>/g, '').trim()).join(' | '),
+      context: `Found ${h1Matches.length} <h1> tags. Best practice is to have exactly one <h1> per page.`,
+      pageUrl: url,
+    });
+  }
+
+  // Check skipped heading levels in DOM order
+  let prevLevel = 0;
+  for (const match of headingMatches) {
+    const level = parseInt(match[1], 10);
+    const text = match[2].replace(/<[^>]+>/g, '').trim();
+
+    if (prevLevel > 0 && level > prevLevel + 1) {
+      issues.push({
+        id: `struct-h-skip-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'medium',
+        title: `Skipped Heading Level (<h${prevLevel}> to <h${level}>)`,
+        snippet: `<h${level}>${text}</h${level}>`,
+        context: `Heading level skipped from <h${prevLevel}> directly to <h${level}> without an <h${prevLevel + 1}>.`,
+        pageUrl: url,
+      });
+    }
+    prevLevel = level;
+  }
+
+  // 2. Meta Title & Description Checks
+  const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/is);
+  if (!titleMatch || !titleMatch[1].trim()) {
+    issues.push({
+      id: `struct-title-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'high',
+      title: 'Missing or Empty Page Title (<title>)',
+      snippet: '<title></title>',
+      context: 'The document lacks a valid <title> tag in <head>.',
+      pageUrl: url,
+    });
+  } else {
+    const titleText = titleMatch[1].trim();
+    if (titleText.length < 10) {
+      issues.push({
+        id: `struct-title-short-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'low',
+        title: `Page Title Too Short (${titleText.length} chars)`,
+        snippet: titleText,
+        context: `Title "${titleText}" is under recommended 10 character minimum for SEO.`,
+        pageUrl: url,
+      });
+    } else if (titleText.length > 70) {
+      issues.push({
+        id: `struct-title-long-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'low',
+        title: `Page Title Too Long (${titleText.length} chars)`,
+        snippet: titleText,
+        context: `Title is ${titleText.length} characters (recommended maximum is 60-70 characters).`,
+        pageUrl: url,
+      });
+    }
+  }
+
+  // Meta Description
+  const metaDescMatch = html.match(/<meta\b[^>]*name=["']description["'][^>]*content=["']([^"']*)["']/i) ||
+                        html.match(/<meta\b[^>]*content=["']([^"']*)["'][^>]*name=["']description["']/i);
+  
+  if (!metaDescMatch) {
+    issues.push({
+      id: `struct-desc-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'high',
+      title: 'Missing Meta Description (<meta name="description">)',
+      snippet: '<meta name="description" content="...">',
+      context: 'No meta description tag was found in the document <head>.',
+      pageUrl: url,
+    });
+  } else {
+    const descText = metaDescMatch[1].trim();
+    if (!descText) {
+      issues.push({
+        id: `struct-desc-empty-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'high',
+        title: 'Empty Meta Description Content',
+        snippet: metaDescMatch[0],
+        context: 'Meta description tag exists but content attribute is empty.',
+        pageUrl: url,
+      });
+    } else if (descText.length < 50) {
+      issues.push({
+        id: `struct-desc-short-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'low',
+        title: `Meta Description Too Short (${descText.length} chars)`,
+        snippet: descText,
+        context: `Meta description is ${descText.length} characters (recommended 50 - 160 characters).`,
+        pageUrl: url,
+      });
+    } else if (descText.length > 160) {
+      issues.push({
+        id: `struct-desc-long-${Math.random().toString(36).substring(2, 9)}`,
+        category: 'html-structure',
+        severity: 'low',
+        title: `Meta Description Too Long (${descText.length} chars)`,
+        snippet: descText,
+        context: `Meta description is ${descText.length} characters (will be truncated in search results above 160 chars).`,
+        pageUrl: url,
+      });
+    }
+  }
+
+  // 3. Semantic Landmark Tags (<main>, <section>)
+  const hasMain = /<main\b|role=["']main["']/i.test(html);
+  if (!hasMain) {
+    issues.push({
+      id: `struct-main-missing-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'medium',
+      title: 'Missing <main> Landmark Container',
+      snippet: '<main> ... </main>',
+      context: 'Document lacks a <main> semantic landmark tag for main content accessibility.',
+      pageUrl: url,
+    });
+  }
+
+  const divCount = (html.match(/<div\b/gi) || []).length;
+  const semanticTagCount = (html.match(/<(?:section|article|header|footer|nav)\b/gi) || []).length;
+
+  if (divCount >= 10 && semanticTagCount === 0) {
+    issues.push({
+      id: `struct-div-soup-${Math.random().toString(36).substring(2, 9)}`,
+      category: 'html-structure',
+      severity: 'medium',
+      title: 'Non-Semantic Layout Structure (Div Soup)',
+      snippet: `${divCount} <div> tags found with 0 semantic section/article elements`,
+      context: `Page uses ${divCount} <div> elements but lacks semantic layout tags like <section>, <article>, or <nav>.`,
+      pageUrl: url,
+    });
+  }
+
+  return issues;
+}
+
+/**
  * Scans an entire HTML string (used by crawler for background pages).
  */
 export function scanHtmlString(
@@ -364,6 +538,12 @@ export function scanHtmlString(
   // Extract Title
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const title = titleMatch ? titleMatch[1].trim() : url;
+
+  // 1. Check HTML Structure & SEO if enabled
+  if (settings.checkHtmlStructure) {
+    const structIssues = checkHtmlStructureFromString(html, url);
+    issues.push(...structIssues);
+  }
 
   // Remove scripts, styles, noscript, svg to avoid false positives
   const sanitized = html

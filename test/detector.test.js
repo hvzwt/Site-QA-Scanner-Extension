@@ -106,8 +106,9 @@ const userHtmlSnippet = `
 `;
 
 const userSnippetScan = scanHtmlString(userHtmlSnippet, 'https://example.com/tested-page', SETTINGS_2026);
-console.log(`  User Snippet Issues Found: ${userSnippetScan.issues.length}`);
-assert.strictEqual(userSnippetScan.issues.length, 2, 'Must detect both 2 Lorem Ipsum occurrences on the page');
+const loremIssuesInSnippet = userSnippetScan.issues.filter(i => i.category === 'lorem-ipsum');
+console.log(`  User Snippet Lorem Ipsum Issues Found: ${loremIssuesInSnippet.length}`);
+assert.strictEqual(loremIssuesInSnippet.length, 2, 'Must detect both 2 Lorem Ipsum occurrences on the page');
 console.log('  ✓ Correctly found both 2 Lorem Ipsum issues in HTML string scan');
 
 // Test active DOM deduplication with distinct highlight IDs
@@ -175,4 +176,33 @@ const anchorIssues = hashPageScan.issues.filter(i => i.category === 'unlinked-an
 assert.strictEqual(anchorIssues.length, 4, 'Should detect all 4 unlinked # links in navigation');
 console.log('  ✓ Correctly detected all 4 unlinked # navigation links on page');
 
-console.log('\n🎉 ALL 16 VERIFICATION TESTS PASSED (INCLUDING UNLINKED # ANCHORS)!\n');
+console.log('\n--- Test 6: HTML Structure & SEO Quality Audits ---');
+import { checkHtmlStructureFromString } from '../src/engine/detector.ts';
+
+const flawedStructHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Short</title>
+</head>
+<body>
+  <div>
+    <h2>Subheading First</h2>
+    <h4>Skipped Level Heading</h4>
+  </div>
+  <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div>
+  <div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+</body>
+</html>
+`;
+
+const structIssues = checkHtmlStructureFromString(flawedStructHtml, 'https://example.com/test-struct');
+assert.ok(structIssues.some(i => i.title.includes('Missing <h1>')), 'Should flag missing <h1> header');
+assert.ok(structIssues.some(i => i.title.includes('Skipped Heading Level')), 'Should flag skipped heading level (<h2> to <h4>)');
+assert.ok(structIssues.some(i => i.title.includes('Page Title Too Short')), 'Should flag short title');
+assert.ok(structIssues.some(i => i.title.includes('Missing Meta Description')), 'Should flag missing meta description');
+assert.ok(structIssues.some(i => i.title.includes('Missing <main> Landmark')), 'Should flag missing <main> container');
+assert.ok(structIssues.some(i => i.title.includes('Div Soup')), 'Should flag non-semantic div soup structure');
+console.log('  ✓ Correctly detected all HTML structure & SEO quality issues (Missing H1, Heading Skips, Meta Tags, Landmarks)');
+
+console.log('\n🎉 ALL VERIFICATION TESTS PASSED (INCLUDING HTML STRUCTURE & SEO)!\n');

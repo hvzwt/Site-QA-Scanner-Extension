@@ -84,6 +84,7 @@ async function handleSiteAudit(urls: string[], settings: ScannerSettings) {
         placeholderMedia: issues.filter(issue => issue.category === 'placeholder-image').length,
         templateVariables: issues.filter(issue => issue.category === 'template-variable').length,
         unlinkedAnchors: issues.filter(issue => issue.category === 'unlinked-anchor').length,
+        htmlStructure: issues.filter(issue => issue.category === 'html-structure').length,
       };
 
       results.push({
@@ -110,6 +111,7 @@ async function handleSiteAudit(urls: string[], settings: ScannerSettings) {
           placeholderMedia: 0,
           templateVariables: 0,
           unlinkedAnchors: 0,
+          htmlStructure: 0,
         },
       });
     }

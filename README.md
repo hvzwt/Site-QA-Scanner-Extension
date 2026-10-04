@@ -31,12 +31,17 @@ A Chrome Extension (Manifest V3) built with **React 18**, **TypeScript**, and **
 - **Smart Diffing Engine:** Normalizes smart quotes and formatting, computes similarity scores, and classifies content into **Exact Matches**, **Content Mismatches** (e.g. altered prices or copy), and **Missing Blocks** (approved content never added to the live page).
 - **Interactive Side-by-Side Review:** Jump directly to differences on the live page with the **Locate** button.
 
-### 5. Copyright & Year Mismatch Engine
+### 5. HTML Structure & SEO Quality Audit
+- **Heading Hierarchy (h1-h6):** Detects missing `<h1>` primary headings, multiple `<h1>` headings, and skipped heading levels (e.g. `<h1>` followed directly by `<h3>`).
+- **Meta Title & Description:** Flags missing/empty `<title>` and `<meta name="description">` tags or improper character lengths (< 10 or > 70 for title; < 50 or > 160 for description).
+- **Semantic Landmarks:** Flags missing `<main>` container landmarks and non-semantic "Div Soup" structures (pages relying entirely on `<div>` tags without semantic `<section>`, `<article>`, `<header>`, `<footer>`, or `<nav>` tags).
+
+### 6. Copyright & Year Mismatch Engine
 - Automatically checks for copyright statements (e.g. `© 2024`, `Copyright 2018-2025`, `&copy; 2025`).
 - Evaluates against the current target year (**2026** by default).
 - Flags outdated years, empty bracketed years like `© [Year]`, and placeholder notices.
 
-### 6. Chrome Side Panel & Tab-Aware URL Scoping
+### 7. Chrome Side Panel & Tab-Aware URL Scoping
 - Built using the Chrome Side Panel API (`chrome.sidePanel`), so the auditor dashboard stays open alongside the webpage without disappearing when interacting with the page.
 - **URL-Scoped State:** Results and comparisons are cleanly scoped per URL, preventing stale audit reports from lingering when switching or opening new tabs, while preserving cached results when navigating back.
 

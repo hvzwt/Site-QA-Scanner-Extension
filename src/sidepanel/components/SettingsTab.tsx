@@ -155,6 +155,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ settings, onUpdateSett
                 className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
               />
             </label>
+
+            <label className="flex items-center justify-between text-xs text-slate-700 cursor-pointer p-1.5 hover:bg-slate-50 rounded-lg">
+              <span>Audit HTML Structure & SEO (Headings h1-h6, Meta, Landmarks)</span>
+              <input
+                type="checkbox"
+                checked={formData.checkHtmlStructure ?? true}
+                onChange={(e) => setFormData(prev => ({ ...prev, checkHtmlStructure: e.target.checked }))}
+                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+              />
+            </label>
           </div>
         </div>
 

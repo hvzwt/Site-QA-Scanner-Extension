@@ -53,6 +53,8 @@ export const SinglePageAudit: React.FC<SinglePageAuditProps> = ({
         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1"><Clock className="w-3 h-3" /> Outdated Year</span>;
       case 'unlinked-anchor':
         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-800 flex items-center gap-1"><Link2 className="w-3 h-3" /> Unlinked (#)</span>;
+      case 'html-structure':
+        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 flex items-center gap-1"><FileCode className="w-3 h-3" /> HTML / SEO</span>;
       case 'placeholder-image':
         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 flex items-center gap-1"><ImageIcon className="w-3 h-3" /> Dummy Media</span>;
       case 'template-variable':
@@ -106,7 +108,7 @@ export const SinglePageAudit: React.FC<SinglePageAuditProps> = ({
           <div>
             <h3 className="text-sm font-bold text-slate-800">Quick Single-Page Review</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-              Click the scan button above to detect all Lorem Ipsum dummy text, unreplaced variables, and outdated copyright years on this page.
+              Click the scan button above to audit dummy text, outdated copyrights, unlinked # anchors, meta tags, and h1-h6 heading structure.
             </p>
           </div>
         </div>
@@ -116,29 +118,35 @@ export const SinglePageAudit: React.FC<SinglePageAuditProps> = ({
       {pageResult && (
         <div className="space-y-4">
           {/* Stat Metric Cards */}
-          <div className="grid grid-cols-4 gap-1.5">
-            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-              <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider block">Total</span>
-              <span className={`text-base font-bold ${pageResult.stats.total > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+          <div className="grid grid-cols-5 gap-1.5">
+            <div className="bg-white p-1.5 rounded-lg border border-slate-200 text-center">
+              <span className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider block">Total</span>
+              <span className={`text-sm font-bold ${pageResult.stats.total > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                 {pageResult.stats.total}
               </span>
             </div>
-            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-              <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider block">Lorem/Text</span>
-              <span className="text-base font-bold text-slate-800">
+            <div className="bg-white p-1.5 rounded-lg border border-slate-200 text-center">
+              <span className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider block">Lorem/Text</span>
+              <span className="text-sm font-bold text-slate-800">
                 {pageResult.stats.loremIpsum + pageResult.stats.dummyText}
               </span>
             </div>
-            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-              <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider block">Outdated</span>
-              <span className={`text-base font-bold ${pageResult.stats.outdatedCopyright > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
+            <div className="bg-white p-1.5 rounded-lg border border-slate-200 text-center">
+              <span className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider block">Outdated</span>
+              <span className={`text-sm font-bold ${pageResult.stats.outdatedCopyright > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
                 {pageResult.stats.outdatedCopyright}
               </span>
             </div>
-            <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-              <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider block"># Links</span>
-              <span className={`text-base font-bold ${pageResult.stats.unlinkedAnchors > 0 ? 'text-orange-600' : 'text-slate-800'}`}>
+            <div className="bg-white p-1.5 rounded-lg border border-slate-200 text-center">
+              <span className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider block"># Links</span>
+              <span className={`text-sm font-bold ${pageResult.stats.unlinkedAnchors > 0 ? 'text-orange-600' : 'text-slate-800'}`}>
                 {pageResult.stats.unlinkedAnchors}
+              </span>
+            </div>
+            <div className="bg-white p-1.5 rounded-lg border border-slate-200 text-center">
+              <span className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider block">HTML/SEO</span>
+              <span className={`text-sm font-bold ${pageResult.stats.htmlStructure > 0 ? 'text-indigo-600' : 'text-slate-800'}`}>
+                {pageResult.stats.htmlStructure || 0}
               </span>
             </div>
           </div>
@@ -151,7 +159,7 @@ export const SinglePageAudit: React.FC<SinglePageAuditProps> = ({
               </div>
               <h4 className="text-sm font-bold text-emerald-900">Page Passed QA!</h4>
               <p className="text-xs text-emerald-700">
-                No Lorem Ipsum, dummy placeholders, broken # links, or outdated copyright years were found on this page.
+                No Lorem Ipsum, dummy placeholders, broken # links, HTML heading skips, or outdated copyright years were found.
               </p>
             </div>
           ) : (
@@ -178,6 +186,18 @@ export const SinglePageAudit: React.FC<SinglePageAuditProps> = ({
                     }`}
                   >
                     Lorem Ipsum ({pageResult.stats.loremIpsum})
+                  </button>
+                )}
+                {pageResult.stats.htmlStructure > 0 && (
+                  <button
+                    onClick={() => setActiveFilter('html-structure')}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors whitespace-nowrap ${
+                      activeFilter === 'html-structure'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    HTML / SEO ({pageResult.stats.htmlStructure})
                   </button>
                 )}
                 {pageResult.stats.unlinkedAnchors > 0 && (
