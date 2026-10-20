@@ -72,6 +72,7 @@ export interface ContentComparisonItem {
   approvedText: string;
   liveText?: string;
   similarity: number; // 0 to 1
+  note?: string; // e.g. how a match was found (contained in larger block, split across lines)
   elementSelector?: string;
   highlightId?: string;
 }

@@ -10,7 +10,7 @@ export function parseGoogleDocId(url: string): string | null {
 
 export function parseFigmaUrl(url: string): { fileKey: string; nodeId?: string } | null {
   if (!url) return null;
-  const keyMatch = url.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/i);
+  const keyMatch = url.match(/figma\.com\/(?:file|design|proto)\/([a-zA-Z0-9]+)/i);
   if (!keyMatch) return null;
 
   const fileKey = keyMatch[1];
@@ -21,7 +21,7 @@ export function parseFigmaUrl(url: string): { fileKey: string; nodeId?: string }
     const rawNodeId = parsedUrl.searchParams.get('node-id');
     if (rawNodeId) {
       // Figma node IDs in URLs can be "1-2" or "1:2"
-      nodeId = decodeURIComponent(rawNodeId).replace('-', ':');
+      nodeId = decodeURIComponent(rawNodeId).replace(/-/g, ':');
     }
   } catch {
     // Ignore URL parse error
@@ -116,13 +116,13 @@ export async function fetchFigmaText(figmaUrl: string, token: string): Promise<s
   }
 
   // Deduplicate and filter empty blocks
-  return textBlocks
-    .map(t => t.trim())
-    .filter(t => t.length > 1);
+  return Array.from(new Set(textBlocks.map(t => t.trim()))).filter(t => t.length > 1);
 }
 
 function collectFigmaTextNodes(node: any, outList: string[]) {
   if (!node) return;
+  // Hidden layers (old variants, toggled-off states) are not part of the approved design
+  if (node.visible === false) return;
 
   if (node.type === 'TEXT' && node.characters && typeof node.characters === 'string') {
     const chars = node.characters.trim();
