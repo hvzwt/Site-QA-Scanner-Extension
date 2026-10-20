@@ -550,10 +550,14 @@ function readBlockText(root: Element): string {
   return out.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Only skips elements that are explicitly removed from rendering.
+ * opacity:0 / visibility:hidden are NOT treated as hidden here: Webflow interactions, GSAP and
+ * AOS start below-the-fold copy at opacity 0 until it scrolls into view, and that copy is on the page.
+ * aria-hidden is not checked either: modal / cookie-banner libraries set it on the whole page wrapper.
+ */
 function isHiddenEl(el: Element): boolean {
-  if (el.closest('[aria-hidden="true"], [hidden]')) return true;
-  const style = window.getComputedStyle(el);
-  return style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+  return window.getComputedStyle(el).display === 'none';
 }
 
 /**

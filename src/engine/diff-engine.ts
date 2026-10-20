@@ -63,7 +63,11 @@ export function computeStringSimilarity(a: string, b: string): number {
   const keyA = toMatchKey(a);
   const keyB = toMatchKey(b);
 
-  if (keyA === keyB) return keyA || normalizeText(a) === normalizeText(b) ? 1.0 : 0.0;
+  if (keyA === keyB) {
+    // Both keys empty (e.g. "→" vs "→") → fall back to the normalized text
+    if (keyA) return 1.0;
+    return normalizeText(a) === normalizeText(b) ? 1.0 : 0.0;
+  }
   if (!keyA || !keyB) return 0.0;
   if (keyA.length < 2 || keyB.length < 2) return 0.0;
 
