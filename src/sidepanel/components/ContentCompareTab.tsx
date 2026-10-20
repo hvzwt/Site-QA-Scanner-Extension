@@ -520,6 +520,9 @@ export const ContentCompareTab: React.FC<ContentCompareTabProps> = ({
                     </div>
                   )}
 
+                  {item.note && (
+                    <p className="mt-1 text-[10px] text-slate-500 italic">{item.note}</p>
+                  )}
                   {item.elementSelector && (
                     <div className="text-[9px] text-slate-400 font-mono truncate">
                       Selector: {item.elementSelector}

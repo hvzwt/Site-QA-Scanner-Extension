@@ -514,44 +514,118 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
   }
 });
 
+const BLOCK_TAGS = new Set([
+  'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'BR', 'DD', 'DIV', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION',
+  'FIGURE', 'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER', 'HR', 'LI', 'MAIN', 'NAV',
+  'OL', 'P', 'PRE', 'SECTION', 'TABLE', 'TD', 'TH', 'TR', 'UL', 'OPTION',
+]);
+const INLINE_TAGS = new Set([
+  'SPAN', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'SMALL', 'MARK', 'SUP', 'SUB', 'CODE', 'ABBR', 'CITE',
+  'Q', 'TIME', 'FONT', 'LABEL', 'DEL', 'INS',
+]);
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'IFRAME', 'CANVAS']);
+
 /**
- * Extracts visible textual blocks from the page for content verification.
+ * Reads an element's text the way it reads on screen, without forcing layout (unlike innerText):
+ * <br> and block-level children become spaces, so "Our<br>Services" → "Our Services"
+ * instead of textContent's "OurServices".
+ */
+function readBlockText(root: Element): string {
+  let out = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      out += node.nodeValue || '';
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const el = node as Element;
+    const tag = el.tagName.toUpperCase();
+    if (SKIP_TAGS.has(tag) || el.id === 'sqa-floating-indicator') return;
+    const isBlock = BLOCK_TAGS.has(tag);
+    if (isBlock) out += ' ';
+    for (let child = el.firstChild; child; child = child.nextSibling) walk(child);
+    if (isBlock) out += ' ';
+  };
+  walk(root);
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+function isHiddenEl(el: Element): boolean {
+  if (el.closest('[aria-hidden="true"], [hidden]')) return true;
+  const style = window.getComputedStyle(el);
+  return style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+}
+
+/**
+ * Extracts textual blocks from the page for content verification.
+ *
+ * Besides semantic tags, it also picks up text that lives directly in <div>/<span> wrappers,
+ * which is how Webflow, Framer, Wix and most React/Vue component libraries render copy.
  */
 function extractPageContentBlocks(): LiveContentBlock[] {
   const blocks: LiveContentBlock[] = [];
-  const visitedElements = new Set<Element>();
-
-  const candidates = Array.from(
-    document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, blockquote, button, a, .text, .title, .subheading, .description, [role="heading"]')
+  const candidates = new Set<Element>(
+    document.querySelectorAll(
+      'h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, td, th, label, button, a, ' +
+      '.text, .title, .subheading, .description, [role="heading"], [role="button"]'
+    )
   );
 
-  for (const el of candidates) {
-    if (visitedElements.has(el)) continue;
-
-    // Check visibility
-    const style = window.getComputedStyle(el);
-    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-      continue;
+  // Text sitting directly inside generic containers (e.g. <div class="hero-heading">Copy</div>)
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let textNode: Node | null;
+  while ((textNode = walker.nextNode())) {
+    if (!textNode.nodeValue || textNode.nodeValue.trim().length < 2) continue;
+    let el = textNode.parentElement;
+    if (!el || SKIP_TAGS.has(el.tagName.toUpperCase())) continue;
+    // Climb out of inline wrappers so "Starting at <strong>$39</strong>" stays one block
+    while (el.parentElement && el.parentElement !== document.body && INLINE_TAGS.has(el.tagName.toUpperCase())) {
+      el = el.parentElement;
     }
+    candidates.add(el);
+  }
 
-    const directText = el.textContent?.replace(/\s+/g, ' ').trim() || '';
-    if (directText.length < 2) continue;
+  // Read pass first (no DOM writes in between, so the browser computes styles once)
+  const visible: { el: Element; text: string }[] = [];
+  for (const el of candidates) {
+    if (el === document.body) continue;
+    const text = readBlockText(el);
+    if (text.length < 2 || text.length > 2000) continue; // skip empty and whole-section wrappers
+    if (isHiddenEl(el)) continue;
+    visible.push({ el, text });
+  }
 
-    // Assign highlight ID for on-page locator
+  // Write pass
+  for (const { el, text } of visible) {
+    // Only tag the element with an ID for "Locate"; don't add the outline class,
+    // otherwise every text element on the page gets a red dashed border.
     let highlightId = el.getAttribute(HIGHLIGHT_ATTR);
     if (!highlightId) {
       highlightId = `sqa-comp-${Math.random().toString(36).substring(2, 9)}`;
       el.setAttribute(HIGHLIGHT_ATTR, highlightId);
-      el.classList.add('sqa-detected-issue-target');
     }
 
     blocks.push({
-      text: directText,
+      text,
       elementSelector: getElementSelector(el),
       highlightId,
     });
+  }
 
-    visitedElements.add(el);
+  // Form controls: button labels and placeholders designed in Figma
+  const controls = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+    'input[type="submit"], input[type="button"], input[placeholder], textarea[placeholder]'
+  );
+  for (const el of controls) {
+    const isButton = el instanceof HTMLInputElement && (el.type === 'submit' || el.type === 'button');
+    const text = ((isButton ? el.value : el.placeholder) || '').replace(/\s+/g, ' ').trim();
+    if (text.length < 2 || isHiddenEl(el)) continue;
+    let highlightId = el.getAttribute(HIGHLIGHT_ATTR);
+    if (!highlightId) {
+      highlightId = `sqa-comp-${Math.random().toString(36).substring(2, 9)}`;
+      el.setAttribute(HIGHLIGHT_ATTR, highlightId);
+    }
+    blocks.push({ text, elementSelector: getElementSelector(el), highlightId });
   }
 
   injectHighlightStyles();
