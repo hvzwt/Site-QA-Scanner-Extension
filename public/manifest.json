@@ -1,11 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Site QA & Dummy Content Auditor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Audits single pages or full sites for Lorem Ipsum dummy text, unrendered template variables, and outdated copyright years.",
   "permissions": [
     "activeTab",
-    "scripting",
     "sidePanel",
     "storage",
     "tabs"
